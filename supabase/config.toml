@@ -1,0 +1,9 @@
+# Supabase CLI 配置示例
+# 部署 Edge Function 前需要安装 Supabase CLI 并登录
+# 详见：https://supabase.com/docs/guides/cli
+
+project_id = "你的-supabase-project-id"
+
+[functions.translate]
+# 是否验证 JWT。若前端未登录，可设为 false，但建议生产环境启用。
+verify_jwt = false

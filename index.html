@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>夫妻聊天器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      overflow: hidden;
+    }
+
+    /* 身份选择 */
+    #identity-screen {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+    #identity-screen h1 {
+      font-size: 24px;
+      margin-bottom: 12px;
+      color: #111;
+    }
+    #identity-screen p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .id-btn {
+      width: 220px;
+      padding: 16px 24px;
+      margin: 10px;
+      font-size: 18px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .1s, box-shadow .1s;
+    }
+    .id-btn:active { transform: scale(.98); }
+    .id-wife { background: #ff9eb5; color: #fff; }
+    .id-husband { background: #7bb3f0; color: #fff; }
+
+    /* 主容器 */
+    #app {
+      display: none;
+      height: 100%;
+      flex-direction: column;
+    }
+
+    /* 顶部 */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #f7f7f7;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+    }
+    header h2 { font-size: 17px; font-weight: 600; }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #555;
+    }
+    .badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+    .badge-wife { background: #ff9eb5; }
+    .badge-husband { background: #7bb3f0; }
+    .identity-toggle {
+      display: flex;
+      gap: 10px;
+    }
+    .id-toggle-btn {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #d9d9d9;
+      background: #fff;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #333;
+    }
+    .id-toggle-btn.active {
+      border-color: #07c160;
+      background: #e8f8ee;
+      color: #07c160;
+      font-weight: 500;
+    }
+    .settings-icon {
+      width: 22px; height: 22px;
+      cursor: pointer;
+      opacity: .6;
+    }
+
+    /* 每周行动卡 */
+    #action-card {
+      display: none;
+      margin: 10px 16px 0;
+      padding: 14px 16px;
+      background: #fff9c4;
+      border-radius: 12px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    #action-card .title { font-weight: 600; margin-bottom: 6px; color: #5d4037; }
+    #action-card .body { color: #5d4037; margin-bottom: 10px; }
+    #action-card .actions { display: flex; gap: 8px; }
+    #action-card button {
+      padding: 6px 14px;
+      font-size: 13px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+    }
+    .btn-done { background: #fbc02d; color: #3e2723; }
+    .btn-skip { background: #f5f5f5; color: #888; border: 1px solid #ddd; }
+
+    /* 沉默提醒 */
+    #silence-tip {
+      display: none;
+      text-align: center;
+      padding: 8px;
+      font-size: 12px;
+      color: #888;
+      flex-shrink: 0;
+    }
+
+    /* 聊天区 */
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px 100px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .msg-row {
+      display: flex;
+      margin-bottom: 14px;
+      align-items: flex-end;
+    }
+    .msg-row.me { justify-content: flex-end; }
+    .msg-row.other { justify-content: flex-start; }
+    .bubble {
+      max-width: 76%;
+      padding: 10px 13px;
+      border-radius: 16px;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-word;
+      position: relative;
+    }
+    .msg-row.me .bubble {
+      background: #95ec69;
+      border-bottom-right-radius: 4px;
+      color: #000;
+    }
+    .msg-row.other .bubble {
+      background: #fff;
+      border-bottom-left-radius: 4px;
+      border: 1px solid #e5e5e5;
+    }
+    .msg-time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    /* AI润色弹窗 */
+    #polish-box {
+      display: none;
+      position: fixed;
+      bottom: 62px;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid #ddd;
+      padding: 12px 16px 16px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+      z-index: 200;
+    }
+    #polish-box label {
+      font-size: 13px;
+      color: #666;
+      display: block;
+      margin-bottom: 6px;
+    }
+    #polish-text {
+      width: 100%;
+      height: 90px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 15px;
+      resize: none;
+      outline: none;
+    }
+    .polish-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .polish-actions button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .btn-confirm { background: #07c160; color: #fff; }
+    .btn-cancel { background: #f2f2f2; color: #333; }
+    .btn-polish {
+      background: #1677ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 15px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-polish:disabled { opacity: .6; }
+
+    /* 底部输入区 */
+    #input-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #f7f7f7;
+      border-top: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      z-index: 150;
+    }
+    #silence-timer {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 6px;
+      padding-left: 4px;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    #msg-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 15px;
+      outline: none;
+      background: #fff;
+    }
+
+    /* 设置弹窗 */
+    #settings-modal, #history-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 3000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: #fff;
+      width: 100%;
+      max-width: 420px;
+      max-height: 86vh;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 17px; }
+    .close-x {
+      font-size: 22px;
+      color: #999;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+    }
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-group textarea {
+      min-height: 220px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .hint {
+      font-size: 12px;
+      color: #999;
+      margin-top: 4px;
+    }
+    .modal-footer {
+      padding: 12px 16px 16px;
+      border-top: 1px solid #eee;
+      text-align: right;
+    }
+    .modal-footer button {
+      padding: 10px 20px;
+      background: #1677ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* 轻提示 */
+    #toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,.75);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+      z-index: 4000;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 身份选择 -->
+  <div id="identity-screen">
+    <h1>夫妻聊天器</h1>
+    <p>选择一个身份，进入只属于我们俩的对话空间</p>
+    <button class="id-btn id-wife" onclick="chooseIdentity('老婆')">我是老婆</button>
+    <button class="id-btn id-husband" onclick="chooseIdentity('老公')">我是老公</button>
+  </div>
+
+  <!-- 主应用 -->
+  <div id="app">
+    <header>
+      <h2>对话翻译器</h2>
+      <div class="header-right">
+        <span id="history-btn" style="font-size:13px;color:#888;cursor:pointer;" onclick="openHistory()">查看历史</span>
+        <span id="identity-badge" class="badge" onclick="toggleIdentityFromBadge()" title="点击切换身份"></span>
+        <svg class="settings-icon" onclick="openSettings()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </div>
+    </header>
+
+    <div id="action-card">
+      <div class="title">本周行动卡</div>
+      <div class="body" id="action-text"></div>
+      <div class="actions">
+        <button class="btn-done" onclick="finishAction()">已完成</button>
+        <button class="btn-skip" onclick="skipAction()">跳过</button>
+      </div>
+    </div>
+
+    <div id="silence-tip"></div>
+
+    <div id="chat-area"></div>
+
+    <div id="polish-box">
+      <label>AI 翻译后的说法（可直接修改）</label>
+      <textarea id="polish-text" placeholder="翻译结果会显示在这里……"></textarea>
+      <div class="polish-actions">
+        <button class="btn-cancel" onclick="cancelPolish()">取消</button>
+        <button class="btn-confirm" onclick="confirmSend()">确认发送</button>
+      </div>
+    </div>
+
+    <div id="input-bar">
+      <div id="silence-timer"></div>
+      <div class="input-row">
+        <input type="text" id="msg-input" placeholder="想说点什么，哪怕是气话……" onkeydown="if(event.key==='Enter') startPolish()">
+        <button class="btn-polish" id="btn-polish" onclick="startPolish()">AI 润色</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置 -->
+  <div id="settings-modal" onclick="closeSettingsOnBackdrop(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>设置与提示词</h3>
+        <span class="close-x" onclick="closeSettings()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>当前身份</label>
+          <div class="identity-toggle">
+            <button type="button" id="id-wife-btn" class="id-toggle-btn" onclick="setIdentityFromSettings('老婆')">我是老婆</button>
+            <button type="button" id="id-husband-btn" class="id-toggle-btn" onclick="setIdentityFromSettings('老公')">我是老公</button>
+          </div>
+          <div class="hint">如果这里是老公的设备，请选择"我是老公"，以免和老婆的设备冲突。</div>
+        </div>
+        <div class="form-group">
+          <label>Supabase 项目地址（Project URL）</label>
+          <input type="text" id="sb-url" placeholder="https://xxxxx.supabase.co">
+          <div class="hint">在 Supabase Dashboard → Project Settings → API 中获取。</div>
+        </div>
+        <div class="form-group">
+          <label>Supabase 匿名密钥（anon / public）</label>
+          <input type="text" id="sb-anon-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+          <div class="hint">在 Supabase Dashboard → Project Settings → API 中获取。</div>
+        </div>
+        <div class="form-group">
+          <label>云函数中转地址（保护 API Key）</label>
+          <input type="text" id="fc-url" placeholder="https://你的项目ID.supabase.co/functions/v1/translate">
+          <div class="hint">推荐 Supabase Edge Functions（免费 50 万次/月），也兼容阿里云 FC、腾讯云 SCF。留空则使用本地模拟翻译。</div>
+        </div>
+        <div class="form-group">
+          <label>系统提示词（System Prompt）— 可手动编辑</label>
+          <textarea id="system-prompt"></textarea>
+          <div class="hint">这段文字会发给 DeepSeek，决定 AI 如何翻译你的话。</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="saveSettings()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- 历史统计 -->
+  <div id="history-modal" onclick="closeHistoryOnBackdrop(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>本周消息统计</h3>
+        <span class="close-x" onclick="closeHistory()">&times;</span>
+      </div>
+      <div class="modal-body" id="history-body">
+        <div style="text-align:center;padding:30px 0;color:#999;">加载中...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ========== 默认配置 ========== */
+    const DEFAULT_PROMPT = `你是一个婚姻沟通翻译官。你的任务是把用户输入的原话，翻译成“非暴力沟通”格式。严格遵守以下四条铁律：
+严禁指责：绝对禁止出现“你总是”、“你从不”、“你让我”这类词。
+格式统一：必须以“我感受到……”或“我需要……”开头。
+必须精简：如果原话超过30字，浓缩成不超过20个字的核心请求。
+输出格式：以“建议说法：”为开头。结尾加上“（这是翻译版本，你可以修改后再发）”。
+在底层指令中，放入“200字的人物小传”。如：“使用者为夫妻二人。妻子高敏感、身心疲惫，需要确认感；丈夫被动、沉默、回避冲突。翻译时尽量将双方语言转化为‘请求’而非‘控诉’。”`;
+
+    const ACTION_SUGGESTIONS = [
+      '今晚一起散步',
+      '本周一起看一部电影',
+      '周末去公园坐坐',
+      '今晚给对方倒杯水',
+      '本周说三句夸奖对方的话'
+    ];
+
+    /* ========== 状态 ========== */
+    let currentIdentity = localStorage.getItem('fc_identity') || '';
+    let config = {
+      supabaseUrl: localStorage.getItem('sb_url') || '',
+      supabaseAnonKey: localStorage.getItem('sb_anon_key') || '',
+      fcUrl: localStorage.getItem('fc_url') || '',
+      systemPrompt: localStorage.getItem('fc_system_prompt') || DEFAULT_PROMPT
+    };
+
+    // 内存中的消息缓存（减少重复渲染）
+    let messageCache = [];
+
+    /* ========== 初始化 ========== */
+    document.addEventListener('DOMContentLoaded', () => {
+      if (currentIdentity) {
+        enterApp();
+      }
+      renderSilenceInfo();
+      setInterval(renderSilenceInfo, 30000);
+      loadMessages();
+      setInterval(loadMessages, 3000);
+    });
+
+    function chooseIdentity(name) {
+      currentIdentity = name;
+      localStorage.setItem('fc_identity', name);
+      enterApp();
+    }
+
+    function enterApp() {
+      document.getElementById('identity-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      const badge = document.getElementById('identity-badge');
+      badge.textContent = currentIdentity;
+      badge.className = 'badge ' + (currentIdentity === '老婆' ? 'badge-wife' : 'badge-husband');
+      renderActionCard();
+      renderMessages();
+    }
+
+    /* ========== 每周行动卡 ========== */
+    function renderActionCard() {
+      const card = document.getElementById('action-card');
+      if (new Date().getDay() !== 0) { card.style.display = 'none'; return; }
+      const weekKey = getWeekKey();
+      if (localStorage.getItem('fc_action_done_' + weekKey) ||
+          localStorage.getItem('fc_action_skip_' + weekKey)) {
+        card.style.display = 'none'; return;
+      }
+      const suggestion = getWeeklySuggestion();
+      document.getElementById('action-text').textContent = suggestion;
+      card.style.display = 'block';
+    }
+
+    function finishAction() {
+      localStorage.setItem('fc_action_done_' + getWeekKey(), '1');
+      document.getElementById('action-card').style.display = 'none';
+      showToast('本周行动已记录，加油！');
+    }
+
+    function skipAction() {
+      localStorage.setItem('fc_action_skip_' + getWeekKey(), '1');
+      document.getElementById('action-card').style.display = 'none';
+      showToast('已跳过，下周再来');
+    }
+
+    function getWeekKey() {
+      const d = new Date();
+      d.setHours(0,0,0,0);
+      d.setDate(d.getDate() - d.getDay());
+      return d.toISOString().slice(0,10);
+    }
+
+    function getWeeklySuggestion() {
+      const week = getWeekKey();
+      let saved = localStorage.getItem('fc_action_' + week);
+      if (!saved) {
+        saved = ACTION_SUGGESTIONS[Math.floor(Math.random() * ACTION_SUGGESTIONS.length)];
+        localStorage.setItem('fc_action_' + week, saved);
+      }
+      return saved;
+    }
+
+    /* ========== 沉默提醒 ========== */
+    function getLastSendTime() {
+      const msgs = messageCache.length ? messageCache : readLocalMessages();
+      if (!msgs.length) return null;
+      return Math.max(...msgs.map(m => new Date(m.time).getTime()));
+    }
+
+    function renderSilenceInfo() {
+      const last = getLastSendTime();
+      const tip = document.getElementById('silence-tip');
+      const timer = document.getElementById('silence-timer');
+      if (!last) {
+        tip.style.display = 'none';
+        timer.textContent = '';
+        return;
+      }
+      const hours = Math.floor((Date.now() - last) / 3600000);
+      const text = hours < 1 ? '' : `距离上次发消息已过去 ${hours} 小时`;
+      if (hours >= 72) {
+        tip.textContent = '最近没怎么说话，还好吗？';
+        tip.style.display = 'block';
+      } else {
+        tip.style.display = 'none';
+      }
+      timer.textContent = text;
+    }
+
+    function isSupabaseReady() {
+      return !!(config.supabaseUrl && config.supabaseAnonKey);
+    }
+
+    function supabaseHeaders() {
+      return {
+        'apikey': config.supabaseAnonKey,
+        'Authorization': 'Bearer ' + config.supabaseAnonKey,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      };
+    }
+
+    /* ========== 消息存储 ========== */
+    function readLocalMessages() {
+      try { return JSON.parse(localStorage.getItem('fc_messages') || '[]'); }
+      catch { return []; }
+    }
+
+    function saveLocalMessage(sender, content) {
+      const msgs = readLocalMessages();
+      msgs.push({ id: Date.now() + Math.random(), sender, content, time: new Date().toISOString() });
+      localStorage.setItem('fc_messages', JSON.stringify(msgs));
+    }
+
+    async function loadMessages() {
+      if (isSupabaseReady()) {
+        try {
+          const res = await fetch(`${config.supabaseUrl}/rest/v1/messages?select=*&order=time.asc`, {
+            headers: supabaseHeaders()
+          });
+          if (!res.ok) throw new Error('云端读取失败');
+          const remote = await res.json();
+          messageCache = remote.map(m => ({
+            id: m.id,
+            sender: m.sender,
+            content: m.content,
+            time: m.time
+          }));
+          // 同步一份到本地，作为离线兜底
+          localStorage.setItem('fc_messages', JSON.stringify(messageCache));
+        } catch (err) {
+          console.warn('Supabase 读取失败，使用本地缓存：', err);
+          messageCache = readLocalMessages();
+        }
+      } else {
+        messageCache = readLocalMessages();
+      }
+      renderMessages();
+      renderSilenceInfo();
+    }
+
+    async function saveMessageToCloud(sender, content) {
+      const payload = {
+        sender,
+        content,
+        time: new Date().toISOString()
+      };
+      if (!isSupabaseReady()) {
+        saveLocalMessage(sender, content);
+        return;
+      }
+      try {
+        const res = await fetch(`${config.supabaseUrl}/rest/v1/messages`, {
+          method: 'POST',
+          headers: supabaseHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('云端保存失败');
+        // 本地也存一份兜底
+        saveLocalMessage(sender, content);
+      } catch (err) {
+        console.warn('Supabase 保存失败，改用本地：', err);
+        saveLocalMessage(sender, content);
+        showToast('网络异常，消息已暂存本地');
+      }
+    }
+
+    /* ========== 渲染消息 ========== */
+    function renderMessages() {
+      const box = document.getElementById('chat-area');
+      const msgs = messageCache.slice().sort((a, b) => new Date(a.time) - new Date(b.time));
+      // 仅在内容变化时重绘，避免滚动跳动
+      const newHtml = msgs.map(m => {
+        const time = new Date(m.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const side = m.sender === currentIdentity ? 'me' : 'other';
+        return `<div class="msg-row ${side}">
+          <div class="bubble">
+            <div>${escapeHtml(m.content)}</div>
+            <div class="msg-time">${time}</div>
+          </div>
+        </div>`;
+      }).join('');
+      if (box.innerHTML !== newHtml) {
+        box.innerHTML = newHtml;
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    /* ========== AI 润色 ========== */
+    async function startPolish() {
+      const input = document.getElementById('msg-input');
+      const raw = input.value.trim();
+      if (!raw) return;
+      const btn = document.getElementById('btn-polish');
+      btn.disabled = true;
+      btn.textContent = '润色中…';
+
+      try {
+        const result = config.fcUrl ? await callRealAI(raw) : mockTranslate(raw);
+        document.getElementById('polish-text').value = result;
+        document.getElementById('polish-box').style.display = 'block';
+      } catch (err) {
+        showToast('翻译失败：' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'AI 润色';
+      }
+    }
+
+    function cancelPolish() {
+      document.getElementById('polish-box').style.display = 'none';
+    }
+
+    async function confirmSend() {
+      const text = document.getElementById('polish-text').value.trim();
+      if (!text) return;
+      await saveMessageToCloud(currentIdentity, text);
+      document.getElementById('msg-input').value = '';
+      document.getElementById('polish-box').style.display = 'none';
+      await loadMessages();
+      renderSilenceInfo();
+    }
+
+    /* ========== 模拟翻译 ========== */
+    function mockTranslate(raw) {
+      const badWords = ['你总是', '你从不', '你让我', '你为什么'];
+      const isBlame = badWords.some(w => raw.includes(w));
+      if (isBlame) {
+        return '建议说法：我感受到不被理解，我需要你能先听我说完。（这是翻译版本，你可以修改后再发）';
+      }
+      return '建议说法：我感受到有些难过/担心，我需要你帮我一起想办法。（这是翻译版本，你可以修改后再发）';
+    }
+
+    /* ========== 真实 AI 调用（流式） ========== */
+    async function callRealAI(raw) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      // Supabase Edge Function 默认需要 anon key 鉴权
+      const headers = {
+        'Content-Type': 'application/json',
+        'apikey': config.supabaseAnonKey,
+        'Authorization': `Bearer ${config.supabaseAnonKey}`
+      };
+      try {
+        const res = await fetch(config.fcUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ text: raw, systemPrompt: config.systemPrompt }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error('服务暂时不可用');
+        // 如果后端返回流，简单处理为首段文本；可按需扩展为逐字显示
+        const text = await res.text();
+        return text || mockTranslate(raw);
+      } catch (err) {
+        // 自动重试一次
+        await new Promise(r => setTimeout(r, 2000));
+        const res2 = await fetch(config.fcUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({ text: raw, systemPrompt: config.systemPrompt })
+        });
+        if (!res2.ok) throw new Error('服务暂时不可用');
+        return await res2.text();
+      }
+    }
+
+    /* ========== 设置 ========== */
+    function openSettings() {
+      document.getElementById('sb-url').value = config.supabaseUrl;
+      document.getElementById('sb-anon-key').value = config.supabaseAnonKey;
+      document.getElementById('fc-url').value = config.fcUrl;
+      document.getElementById('system-prompt').value = config.systemPrompt;
+      // 同步身份按钮的选中状态
+      document.getElementById('id-wife-btn').classList.toggle('active', currentIdentity === '老婆');
+      document.getElementById('id-husband-btn').classList.toggle('active', currentIdentity === '老公');
+      document.getElementById('settings-modal').style.display = 'flex';
+    }
+
+    function setIdentityFromSettings(name) {
+      if (!name) return;
+      currentIdentity = name;
+      localStorage.setItem('fc_identity', name);
+      // 同步顶部徽章
+      const badge = document.getElementById('identity-badge');
+      badge.textContent = name;
+      badge.className = 'badge ' + (name === '老婆' ? 'badge-wife' : 'badge-husband');
+      // 同步设置按钮高亮
+      document.getElementById('id-wife-btn').classList.toggle('active', name === '老婆');
+      document.getElementById('id-husband-btn').classList.toggle('active', name === '老公');
+      showToast('已切换为：' + name);
+    }
+
+    function toggleIdentityFromBadge() {
+      const newName = currentIdentity === '老婆' ? '老公' : '老婆';
+      setIdentityFromSettings(newName);
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    function closeSettingsOnBackdrop(e) {
+      if (e.target.id === 'settings-modal') closeSettings();
+    }
+
+    function saveSettings() {
+      config.supabaseUrl = document.getElementById('sb-url').value.trim();
+      config.supabaseAnonKey = document.getElementById('sb-anon-key').value.trim();
+      config.fcUrl = document.getElementById('fc-url').value.trim();
+      config.systemPrompt = document.getElementById('system-prompt').value.trim();
+      localStorage.setItem('sb_url', config.supabaseUrl);
+      localStorage.setItem('sb_anon_key', config.supabaseAnonKey);
+      localStorage.setItem('fc_url', config.fcUrl);
+      localStorage.setItem('fc_system_prompt', config.systemPrompt);
+      closeSettings();
+      showToast('设置已保存');
+      // 重新拉取云端消息
+      loadMessages();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 2000);
+    }
+
+    /* ========== 历史统计 ========== */
+    function openHistory() {
+      const body = document.getElementById('history-body');
+      body.innerHTML = '<div style="text-align:center;padding:30px 0;color:#999;">计算中...</div>';
+      document.getElementById('history-modal').style.display = 'flex';
+
+      // 计算本周（过去7天）各身份发送的消息数
+      const msgs = messageCache.length ? messageCache : readLocalMessages();
+      const now = Date.now();
+      const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const recent = msgs.filter(m => new Date(m.time).getTime() >= weekAgo);
+
+      const wifeCount = recent.filter(m => m.sender === '老婆').length;
+      const husbandCount = recent.filter(m => m.sender === '老公').length;
+      const total = wifeCount + husbandCount;
+
+      body.innerHTML = `
+        <div style="text-align:center;padding:10px 0 20px;">
+          <div style="font-size:13px;color:#999;margin-bottom:16px;">
+            过去 7 天（${new Date(weekAgo).toLocaleDateString('zh-CN')} ~ ${new Date().toLocaleDateString('zh-CN')}）
+          </div>
+          <div style="display:flex;justify-content:space-around;padding:0 10px;">
+            <div style="text-align:center;">
+              <div style="font-size:32px;font-weight:700;color:#ff9eb5;">${wifeCount}</div>
+              <div style="font-size:14px;color:#888;margin-top:4px;">老婆</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:32px;font-weight:700;color:#7bb3f0;">${husbandCount}</div>
+              <div style="font-size:14px;color:#888;margin-top:4px;">老公</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:32px;font-weight:700;color:#555;">${total}</div>
+              <div style="font-size:14px;color:#888;margin-top:4px;">合计</div>
+            </div>
+          </div>
+          <div style="margin-top:18px;font-size:13px;color:#bbb;">
+            ${total === 0 ? '本周还没有消息，快说点什么吧' : '发送最多的那天：' + getBusiestDay(recent)}
+          </div>
+        </div>
+      `;
+    }
+
+    function getBusiestDay(msgs) {
+      if (!msgs.length) return '-';
+      const dayCount = {};
+      msgs.forEach(m => {
+        const d = new Date(m.time).toLocaleDateString('zh-CN');
+        dayCount[d] = (dayCount[d] || 0) + 1;
+      });
+      const maxDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0];
+      return maxDay ? maxDay[0] + '（' + maxDay[1] + '条）' : '-';
+    }
+
+    function closeHistory() {
+      document.getElementById('history-modal').style.display = 'none';
+    }
+
+    function closeHistoryOnBackdrop(e) {
+      if (e.target.id === 'history-modal') closeHistory();
+    }
+  </script>
+</body>
+</html>
